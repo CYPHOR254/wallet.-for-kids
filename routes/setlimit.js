@@ -1,7 +1,7 @@
-const router =require ("express").Router();
-const bodyParser = require('body-parser');
+const router = require("express").Router();
+const bodyParser = require("body-parser");
 const { response } = require("express");
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 let spendingLimit = 0;
 let dailySpendingLimit = 0;
@@ -10,17 +10,17 @@ let monthlySpendingLimit = 0;
 
 router.use(bodyParser.json());
 
-router.post('/setlimit', (req, res) => {
+router.post("/setlimit", (req, res) => {
   const { limitType, limitAmount, email } = req.body;
 
   switch (limitType) {
-    case 'daily':
+    case "daily":
       dailySpendingLimit = limitAmount;
       break;
-    case 'weekly':
+    case "weekly":
       weeklySpendingLimit = limitAmount;
       break;
-    case 'monthly':
+    case "monthly":
       monthlySpendingLimit = limitAmount;
       break;
     default:
@@ -29,27 +29,31 @@ router.post('/setlimit', (req, res) => {
   }
 
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: "gmail",
     auth: {
-      user: 'earvinekinyua@gmail.com',
-      pass: 'eobgrnqgysxkdvsh',
+      user: "earvinekinyua@gmail.com",
+      pass: "eobgrnqgysxkdvsh",
     },
   });
 
   const mailOptions = {
-    from: 'mypiggybank@gmail.com',
+    from: "mypiggybank@gmail.com",
     to: email,
-    subject: 'Spending limit set successfully',
-    text: 'Dear parent, your child\'s spending limit has been set successfully.',
+    subject: "Spending limit set successfully",
+    text: `Dear parent, your child's spending limit has been set successfully to ${limitAmount} ${limitType}.`,
   };
-
+  
   transporter.sendMail(mailOptions, function (error, info) {
     if (error) {
       console.log(error);
-      res.status(500).json({ message: 'Error: email could not be sent' });
+      res.status(500).json({ message: "Error: email could not be sent" });
     } else {
-      console.log('Email sent: ' + info.response);
-      res.status(200).json({ message: 'Spending limit set successfully. Email sent to parent.' });
+      console.log("Email sent: " + info.response);
+      res
+        .status(200)
+        .json({
+          message: "Spending limit set successfully. Email sent to parent.",
+        });
     }
   });
 });
@@ -57,30 +61,4 @@ router.post('/setlimit', (req, res) => {
 module.exports = router;
 
 
-// let spendingLimit = 0;
-// let dailySpendingLimit = 0;
-// let weeklySpendingLimit = 0;
-// let monthlySpendingLimit = 0;
 
-// router.post('/setlimit', (req, res) => {
-//   const { limitType, limitAmount } = req.body;
-
-//   switch (limitType) {
-//     case 'daily':
-//       dailySpendingLimit = limitAmount;
-//       break;
-//     case 'weekly':
-//       weeklySpendingLimit = limitAmount;
-//       break;
-//     case 'monthly':
-//       monthlySpendingLimit = limitAmount;
-//       break;
-//     default:
-//       spendingLimit = limitAmount;
-//       break;
-//   }
-
-//   res.status(200).json({ message: 'Spending limit set successfully.' });
-// });
-
-module.exports = router;

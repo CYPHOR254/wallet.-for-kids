@@ -62,7 +62,7 @@ function access (req, res, next) {
 
 
 
-  router.post("/buygoods",access, async  (req, res) => {
+  router.post("/buy_Goods",access, async  (req, res) => {
     // Extract necessary parameters from the request body
     const { accountNo,  tillNo ,amount } = req.body;
   
@@ -89,48 +89,48 @@ function access (req, res, next) {
      const account = accountResult[0];
   
   
-      // STK- LINA NA MPESA ONLINE
-      let url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
-      let auth = "Bearer " + req.access_token;
-      const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, -3);
-      const password =
-        "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz"; // TODO: Replace with your Safaricom password
-      // const shortcode = 174379; // TODO: Replace with your Safaricom shortcode
-      // const businessNumber = 254759432206;
+      // // STK- LINA NA MPESA ONLINE
+      // let url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+      // let auth = "Bearer " + req.access_token;
+      // const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, -3);
+      // const password =
+      //   "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz"; // TODO: Replace with your Safaricom password
+      // // const shortcode = 174379; // TODO: Replace with your Safaricom shortcode
+      // // const businessNumber = 254759432206;
       
-      console.log(auth);
+      // console.log(auth);
     
-      request(
-        {
-          url: url,
-          method: "POST",
-          headers: {
-            Authorization: auth,
-          },
-          json: {
-            BusinessShortCode: 174379,
-            Password:
-              "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz",
-            Timestamp: "20230315130703",
-            TransactionType: "CustomerPayBillOnline",
-            Amount: amount,
-            PartyA: 254759432206,
-            PartyB: 174379,
-            PhoneNumber: 254759432206,
-            CallBackURL: "https://mydomain.com/path",
-            AccountReference: "MY PIGGY BANK",
-            TransactionDesc: 'you have successfully sent ${amount} to the phone number',
-          },
-        },
-        function (error, response, body) {
-          if (error) {
-            console.error(error);
-          } else {
-            // res.status(200).json(body);
-          console.log(body);
-          }
-        }
-      )
+      // request(
+      //   {
+      //     url: url,
+      //     method: "POST",
+      //     headers: {
+      //       Authorization: auth,
+      //     },
+      //     json: {
+      //       BusinessShortCode: 174379,
+      //       Password:
+      //         "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz",
+      //       Timestamp: "20230315130703",
+      //       TransactionType: "CustomerPayBillOnline",
+      //       Amount: amount,
+      //       PartyA: 254759432206,
+      //       PartyB: 174379,
+      //       PhoneNumber: 254759432206,
+      //       CallBackURL: "https://mydomain.com/path",
+      //       AccountReference: "MY PIGGY BANK",
+      //       TransactionDesc: 'you have successfully sent ${amount} to the phone number',
+      //     },
+      //   },
+      //   function (error, response, body) {
+      //     if (error) {
+      //       console.error(error);
+      //     } else {
+      //       // res.status(200).json(body);
+      //     console.log(body);
+      //     }
+      //   }
+      // )
   
   
       let connection;
@@ -214,5 +214,96 @@ function access (req, res, next) {
   
 
 
+  // // const endpoint= buy_goods;
+  // router.post("/buy_Goods", access, async (req, res) => {
+  //   // Extract necessary parameters from the request body
+  //   const { accountNo, tillNo, amount } = req.body;
+  
+  //   // Validate input data
+  //   if (!accountNo || !tillNo || !amount) {
+  //     return res.status(400).send("Missing required fields");
+  //   }
+  
+  //   // Check if the transaction amount is positive
+  //   if (amount <= 0) {
+  //     return res.status(400).send("Amount must be positive");
+  //   }
+  
+  //   // Check if the accountNo exists in the database
+  //   const accountQuery = "SELECT * FROM accountDB WHERE accountNo = ?";
+  //   const accountValues = [accountNo];
+  //   const accountResult = await pool.query(accountQuery, accountValues);
+  
+  //   if (accountResult.length === 0) {
+  //     return res.status(404).send("Account not found");
+  //   }
+  
+  //   const account = accountResult[0];
+  
+  //   // Calculate the rounded-up amount
+  //   const roundedUpAmount = Math.ceil(amount);
+  
+  //   // Calculate the difference between the rounded-up amount and the actual amount
+  //   const difference = roundedUpAmount - amount;
+  
+  //   // Deduct the difference from the user's account balance
+  //   const newBalance = account.balance - difference;
+  
+  //   // Check if the account balance is sufficient for the transaction
+  //   if (newBalance < 0) {
+  //     return res.status(400).send("Insufficient balance");
+  //   }
+  
+  //   // Update the account balance in the database
+  //   const updateQuery = "UPDATE accountDB SET balance = ? WHERE accountNo = ?";
+  //   const updateValues = [newBalance, accountNo];
+  //   await pool.query(updateQuery, updateValues);
+  
+  //   // STK- LINA NA MPESA ONLINE
+  //   let url =
+  //     "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+  //   let auth = "Bearer " + req.access_token;
+  //   const timestamp = new Date()
+  //     .toISOString()
+  //     .replace(/[-:.TZ]/g, "")
+  //     .slice(0, -3);
+  //   const password =
+  //     "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz";
+  //   console.log(auth);
+  
+  //   request(
+  //     {
+  //       url: url,
+  //       method: "POST",
+  //       headers: {
+  //         Authorization: auth,
+  //       },
+  //       json: {
+  //         BusinessShortCode: 174379,
+  //         Password: password,
+  //         Timestamp: timestamp,
+  //         TransactionType: "CustomerPayBillOnline",
+  //         Amount: roundedUpAmount,
+  //         PartyA: 254759432206,
+  //         PartyB: 174379,
+  //         PhoneNumber: 254759432206,
+  //         CallBackURL: "https://mydomain.com/path",
+  //         AccountReference: "MY PIGGY BANK",
+  //         TransactionDesc: `You have successfully sent ${amount} to the phone number`,
+  //       },
+  //     },
+  //     function (error, response, body) {
+  //       if (error) {
+  //         console.error(error);
+  //         return res.status(500).send("Something went wrong");
+  //       }
+  
+  //       console.log(body);
+  //       return res.status(200).send("Transaction successful");
+  //     }
+  //   )
+  //   });
 
+
+  
   module.exports = router;

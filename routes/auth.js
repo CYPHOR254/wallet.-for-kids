@@ -4,7 +4,8 @@ const db = require ("../database.js")
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require ("nodemailer")
-const mysql = require ("mysql2/promise")
+const mysql = require ("mysql2/promise");
+const { register } = require("../controllers/auth-cont.js");
 
 
 // Define a route handler for the registration endpoint
@@ -65,10 +66,6 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({ error: 'Failed to save user details' });
   }
 });
-
-
-
-// Define a route handler for login endpoint
 
 router.post('/login', async (req, res) => {
   const { email, otp } = req.body;
@@ -134,21 +131,18 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
-
-
-router.post('/change-password', async (req, res) => {
-  const { email, password, newPassword } = req.body;
+router.put('/change-password', async (req, res) => {
+  const { email, currentPassword, newPassword, newEmail } = req.body;
 
   try {
     // Retrieve user from database
-    const [rows, fields] = db.query(`SELECT * FROM USERSDB WHERE email = '${email}'`);
+    const result = db.query('SELECT * FROM USERSDB WHERE email = ?', [email]);
 
-    if (!Array.isArray(rows) || rows.length === 0) {
+    if (!Array.isArray(result) || result.length === 0) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    const user = rows[0];
+    const user = result[0];
 
     // Check if user is active
     if (user.isActive !== 1) {
@@ -160,151 +154,53 @@ router.post('/change-password', async (req, res) => {
       return res.status(401).json({ error: 'User is blocked' });
     }
 
-    // Check if password is correct
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
+    // Check if current password is correct
+    const passwordMatch = await bcrypt.compare(currentPassword, user.password);
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Incorrect password' });
+      return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Hash new password
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update user's password in database
-    db.query('UPDATE USERSDB SET password = ? WHERE email = ?', [hashedNewPassword, email]);
+    // Update user's password and/or email
+    const queryParams = [hashedPassword, email];
+    let updateQuery = 'UPDATE USERSDB SET password = ? WHERE email = ?';
+    if (newEmail) {
+      queryParams.push(newEmail);
+      updateQuery = 'UPDATE USERSDB SET password = ?, email = ? WHERE email = ?';
+    }
+    db.query(updateQuery, queryParams);
 
-    // Generate new OTP
-    const otp = Math.floor(100000 + Math.random() * 900000);
+    // Send email to user with new email if it was updated
+    if (newEmail) {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: 'earvinekinyua@gmail.com',
+          pass: 'eobgrnqgysxkdvsh'
+        }
+      });
 
-    // Update user's OTP in database
-    db.query('UPDATE USERSDB SET otp = ? WHERE email = ?', [otp, email]);
+      const mailOptions = {
+        from: 'earvinekinyua@gmail.com',
+        to: newEmail,
+        subject: 'Your email has been updated',
+        text: `Hello,\n\nYour email for login has been updated to: ${newEmail}\n\nThank you,\nThe App Team`
+      };
 
-    // Create Nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      service: 'Gmail',
-      auth: {
-        user: 'your_email@gmail.com',
-        pass: 'your_password'
-      }
-    });
+      await transporter.sendMail(mailOptions);
+    }
 
-    // Configure email options
-    const mailOptions = {
-      from: 'your_email@gmail.com',
-      to: email,
-      subject: 'Password Reset',
-      html: `Your password has been reset to ${newPassword}. Your new OTP is ${otp}.`
-    };
-
-    // Send email
-    await transporter.sendMail(mailOptions);
-
-    // Respond with success message
-    res.status(200).json({ success: 'Password changed successfully' });
-
+    // Send success response
+    res.status(200).json({ success: 'User details updated successfully' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to change password' });
+    res.status(500).json({ error: 'Failed to update user details' });
   }
 });
-
-// router.post('/change-password', async (req, res) => {
-//   const { email, oldPassword, newPassword } = req.body;
-
-//   try {
-//     // Retrieve user from database
-//     const result = db.query(`SELECT * FROM USERSDB WHERE email = ?`, [email]);
-
-//     if (!Array.isArray(result) || result.length === 0) {
-//       return res.status(401).json({ error: 'User not found' });
-//     }
-
-//     const user = result[0];
-
-//     // Verify old password
-//     const passwordMatch = await bcrypt.compare(oldPassword, user.password);
-
-//     if (!passwordMatch) {
-//       return res.status(401).json({ error: 'Invalid old password' });
-//     }
-
-//     // Hash and update new password
-//     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-//     db.query(`UPDATE USERSDB SET password = ? WHERE email = ?`, [hashedNewPassword, email]);
-
-//     // Respond with success message
-//     res.status(200).json({ success: 'Password changed successfully' });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to change password' });
-//   }
-// });
-
-
-
-// const crypto = require('crypto');
-// const User = require('../database'); // import User model from database
-
-// const app = express();
-
-
-
-// // Route to handle POST request for changing password
-// router.post('/change-password', async (req, res) => {
-//   const { email, oldPassword } = req.body;
-
-//   // Find user with the provided email
-//   const user = await User.findOne({ email });
-
-//   if (!user) {
-//     return res.status(400).json({ error: 'User not found' });
-//   }
-
-//   // Check if old password is correct
-//   const isPasswordMatch = await bcrypt.compare(oldPassword, user.password);
-
-//   if (!isPasswordMatch) {
-//     return res.status(400).json({ error: 'Incorrect password' });
-//   }
-
-//   // Generate new OTP password
-//   const otp = crypto.randomBytes(4).toString('hex');
-
-//   // Hash new password and OTP
-//   const hashedPassword = await bcrypt.hash(otp, 10);
-
-//   // Update user's password and OTP in the database
-//   await User.updateOne({ email }, { password: hashedPassword, otp });
-
-//   // Send email to the user with the new OTP password
-//   const transporter = nodemailer.createTransport({
-//     service: 'gmail',
-//     auth: {
-//       user: 'your_email@gmail.com',
-//       pass: 'your_password',
-//     },
-//   });
-
-//   const mailOptions = {
-//     from: 'your_email@gmail.com',
-//     to: email,
-//     subject: 'New OTP Password',
-//     text: `Your new OTP password is ${otp}`,
-//   };
-
-//   transporter.sendMail(mailOptions, (error, info) => {
-//     if (error) {
-//       console.log(error);
-//     } else {
-//       console.log(`Email sent: ${info.response}`);
-//     }
-//   });
-
-//   // Respond with success message
-//   return res.status(200).json({ message: 'Password changed successfully' });
-// });
-
-
 
 
 

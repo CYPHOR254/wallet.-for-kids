@@ -7,28 +7,30 @@ const bcrypt = require("bcrypt");
 const mysql = require("mysql2/promise");
 const Mpesa = require("mpesa-api").Mpesa;
 const axios = require("axios");
-const request = require("request");
+const request = require('request');
 const moment = require("moment");
+const { stk, stkFunct } = require("../controllers/mpesa-cont");
 
 // Initialize M-PESA API client
 const mpesa = new Mpesa({
-  consumerKey: "p4Thu6G1hGl5qwV3Nl3dO4KBy0OOc8qA",
-  consumerSecret: "Y04GkoVBtc93d09wv",
+  consumerKey: "PrAF2ERfi8k5QNJ92Bb6zk5trGYBtUqp",
+  consumerSecret: "OGefPDG82zxl6s5T",
   environment: "sandbox",
   shortCode: "600984",
   initiatorName: "testapi",
   securityCredential: "Safaricom999!*!",
 });
 
+
 function access(req, res, next) {
   // access token
   let saf_url =
     "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
   let auth = new Buffer.from(
-    "p4Thu6G1hGl5qwV3Nl3dO4KBy0OOc8qA:04GkoVBtc93d09wv"
+    "PrAF2ERfi8k5QNJ92Bb6zk5trGYBtUqp:OGefPDG82zxl6s5T"
   ).toString("base64");
 
-  // console.log(auth);
+  console.log(auth);
   request(
     {
       url: saf_url,
@@ -49,7 +51,8 @@ function access(req, res, next) {
       }
     }
   );
-};
+}
+// const apiUrl = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
 
 const pool = mysql.createPool({
   connectionLimit: 100,
@@ -60,8 +63,7 @@ const pool = mysql.createPool({
   port: "3306", // port name, "3306" by default
 });
 
-
-router.post("/deposit", access, async function deposit(req, res) {
+router.post("/deposit", access, async function (req, res) {
   const { accountNo, amount } = req.body;
 
   // Validate input data
@@ -85,15 +87,24 @@ router.post("/deposit", access, async function deposit(req, res) {
     return res.status(400).send("Amount must be positive");
   }
 
+    // Check if the account has enough money to make the transaction
+    if (account.available_balance < amount) {
+      return res.status(400).send("Insufficient funds");
+    }
+    
   // STK- LINA NA MPESA ONLINE
   let url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+  // let auth = "Bearer " + req.access_token;
   let auth = "Bearer " + req.access_token;
-  const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, -3);
+
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:.TZ]/g, "")
+    .slice(0, -3);
   const password =
-    "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz"; // TODO: Replace with your Safaricom password
-  // const shortcode = 174379; // TODO: Replace with your Safaricom shortcode
+  "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwNDE3MTIxMjI2"  // const shortcode = 174379; // TODO: Replace with your Safaricom shortcode
   // const businessNumber = 254759432206;
-  
+
   console.log(auth);
 
   request(
@@ -104,39 +115,46 @@ router.post("/deposit", access, async function deposit(req, res) {
         Authorization: auth,
       },
       json: {
-        BusinessShortCode: 174379,
-        Password:
-          "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwMzE1MTMwNzAz",
-        Timestamp: "20230315130703",
-        TransactionType: "CustomerPayBillOnline",
-        Amount: amount,
-        PartyA: 254759432206,
-        PartyB: 174379,
-        PhoneNumber: 254759432206,
-        CallBackURL: "https://mydomain.com/path",
-        AccountReference: "MY PIGGY BANK",
-        TransactionDesc: "Payment of X",
+        
+          BusinessShortCode: 174379,
+          Password: "MTc0Mzc5YmZiMjc5ZjlhYTliZGJjZjE1OGU5N2RkNzFhNDY3Y2QyZTBjODkzMDU5YjEwZjc4ZTZiNzJhZGExZWQyYzkxOTIwMjMwNDE3MTIxMjI2",
+          Timestamp: "20230417121226",
+          TransactionType: "CustomerPayBillOnline",
+          Amount: amount,
+          PartyA: 254759432206,
+          PartyB: 174379,
+          PhoneNumber: 254759432206,
+          CallBackURL: "https://mydomain.com/path",
+          AccountReference: "MY PIGGY BANK 2",
+          TransactionDesc: "you have successfully sent ${amount} to the phone number"
       },
     },
     function (error, response, body) {
       if (error) {
-        console.error(error);
+        console.error(`----ERROR-----\n${error}`);
       } else {
         // res.status(200).json(body);
-      console.log(body);
+        console.error(`----BODY-----\n${JSON.stringify(body)}`);
+        // console.log(response);
+        console.log(body);
+
       }
     }
-  )
+  );
 
   let connection;
   try {
+    // Send the request to Mpesa
+    // const result = await deposit (accountNo, amount );
+    // let deposit = stkFunct();
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
     const currency = account.currency;
     const transactionType = "deposit";
     const entryType = "credit";
-    const username = "parent"; // hardcoded for now
+    const username = accountNo; // hardcoded for now
 
     const transactionCode = `${accountNo}-${new Date().getFullYear()}-${
       new Date().getMonth() + 1
@@ -173,7 +191,6 @@ router.post("/deposit", access, async function deposit(req, res) {
     console.log(accountBalanceResult[0][0].available_balance);
     const accountBalance = accountBalanceResult[0][0].available_balance;
 
-    
     // Update the account balance
     console.log(accountBalance);
     // console.log(amount);
@@ -196,7 +213,7 @@ router.post("/deposit", access, async function deposit(req, res) {
       .status(200)
       .send(`Deposit successful. Transaction code: ${transactionCode}`);
   } catch (error) {
-    await connection.rollback();
+    // await connection.rollback();
     console.error(error);
     res.status(500).send("Server error");
   } finally {
@@ -205,8 +222,5 @@ router.post("/deposit", access, async function deposit(req, res) {
     }
   }
 });
-
-
-
 
 module.exports = router;
