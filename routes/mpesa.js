@@ -6,7 +6,7 @@ const { response } = require("express");
 const { body } = require("express-validator");
 const bodyParser = require("body-parser");
 const { url } = require("inspector");
-const { stkFunct, balanceFunction, simulateFunction, registerFunction } = require("../controllers/mpesa-cont.js");
+const { stkFunct, balanceFunction, simulateFunction, registerFunction,b2c, b2cFunct } = require("../controllers/mpesa-cont.js");
 const c2bRegister = require("mpesa-node/src/endpoints/c2b-register.js");
 
 // const urls = {
@@ -16,7 +16,36 @@ const c2bRegister = require("mpesa-node/src/endpoints/c2b-register.js");
 //   base_url: "",
 // };
 
+function access(req, res, next) {
+  // access token
+  let saf_url =
+    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+  let auth = new Buffer.from(
+    "PrAF2ERfi8k5QNJ92Bb6zk5trGYBtUqp:OGefPDG82zxl6s5T"
+  ).toString("base64");
 
+  console.log(auth);
+  request(
+    {
+      url: saf_url,
+      headers: {
+        Authorization: `Basic ${auth}`,
+      },
+    },
+    (error, response, body) => {
+      if (error) {
+        console.error(error);
+      } else {
+        // console.log(body);
+        const result = JSON.parse(body);
+        // req.access_token = result;
+        console.log(result);
+        req.access_token = result.access_token;
+        next();
+      }
+    }
+  );
+}
 const consumerKey = "4Thu6G1hGl5qwV3Nl3dO4KBy0OOc8qA";
 const consumerSecret = "04GkoVBtc93d09wv";
 
@@ -55,36 +84,6 @@ router.get("/access_token", (req, res) => {
 
 router.get("/register", access, registerFunction);
 
-function access(req, res, next) {
-  // access token
-  let saf_url =
-    "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
-  let auth = new Buffer.from(
-    "PrAF2ERfi8k5QNJ92Bb6zk5trGYBtUqp:OGefPDG82zxl6s5T"
-  ).toString("base64");
-
-  console.log(auth);
-  request(
-    {
-      url: saf_url,
-      headers: {
-        Authorization: `Basic ${auth}`,
-      },
-    },
-    (error, response, body) => {
-      if (error) {
-        console.error(error);
-      } else {
-        // console.log(body);
-        const result = JSON.parse(body);
-        // req.access_token = result;
-        console.log(result);
-        req.access_token = result.access_token;
-        next();
-      }
-    }
-  );
-}
 
 router.get("/confirmation", (req, res) => {
   console.log("........confirmation......");
@@ -106,8 +105,11 @@ router.get("/balance", access, balanceFunction );
 // STK- LINA NA MPESA ONLINE
 router.get("/stk", access, stkFunct);
 
+//B2C 
+router.get("/b2c", access, b2cFunct  )
 
-router.post('/callback',access , stkFunct);
+//callback url
+// router.post('/callback',access , stkFunct);
 
 
 module.exports = router;
@@ -117,3 +119,34 @@ module.exports = router;
 
 
 
+
+// function access(req, res, next) {
+//   // access token
+//   let saf_url =
+//     "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+//   let auth = new Buffer.from(
+//     "PrAF2ERfi8k5QNJ92Bb6zk5trGYBtUqp:OGefPDG82zxl6s5T"
+//   ).toString("base64");
+
+//   console.log(auth);
+//   request(
+//     {
+//       url: saf_url,
+//       headers: {
+//         Authorization: `Basic ${auth}`,
+//       },
+//     },
+//     (error, response, body) => {
+//       if (error) {
+//         console.error(error);
+//       } else {
+//         // console.log(body);
+//         const result = JSON.parse(body);
+//         // req.access_token = result;
+//         console.log(result);
+//         req.access_token = result.access_token;
+//         next();
+//       }
+//     }
+//   );
+// }
