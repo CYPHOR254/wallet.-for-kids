@@ -6,7 +6,7 @@ const { response } = require("express");
 const { body } = require("express-validator");
 const bodyParser = require("body-parser");
 const { url } = require("inspector");
-const { stkFunct, balanceFunction, simulateFunction, registerFunction,b2c, b2cFunct } = require("../controllers/mpesa-cont.js");
+const { stkFunct, balanceFunction, simulateFunction, registerFunction,b2c, b2cFunct, timeOut} = require("../controllers/mpesa-cont.js");
 const c2bRegister = require("mpesa-node/src/endpoints/c2b-register.js");
 
 // const urls = {
@@ -105,12 +105,17 @@ router.get("/balance", access, balanceFunction );
 // STK- LINA NA MPESA ONLINE
 router.get("/stk", access, stkFunct);
 
+//callback url
+// router.post("/callback" , access, callback)
+
 //B2C 
 router.get("/b2c", access, b2cFunct  )
 
 //callback url
-// router.post('/callback',access , stkFunct);
 
+
+//timeout
+router.post("/timeout", access, timeOut )
 
 module.exports = router;
 

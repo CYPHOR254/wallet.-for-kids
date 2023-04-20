@@ -158,11 +158,9 @@ router.post("/login_child", async (req, res) => {
 
         // Check if user has trials left
         if (user.trials <= 0) {
-          return res
-            .status(401)
-            .json({
-              error: "User has exceeded the maximum number of login attempts",
-            });
+          return res.status(401).json({
+            error: "User has exceeded the maximum number of login attempts",
+          });
         }
         // Retrieve OTP for user from database
         //const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);

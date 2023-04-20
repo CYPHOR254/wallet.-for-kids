@@ -143,24 +143,6 @@ router.post("/requestMoneyByEmail", access, async function (req, res) {
 });
 
 // // create an endpoint to retrieve transactions
-// router.get('/transactions', (req, res) => {
-//   // SQL query to retrieve transactions
-//   const sql = 'SELECT * FROM transactions';
 
-//   // Insert the payment request data into the MySQL database
-//   const pool = mysql.createPool({
-//     connectionLimit: 100,
-//     host: "localhost", //This is your localhost IP
-//     user: "root", // "newuser" created in Step 1(e)
-//     password: "!asapmysql+2enen#", // password for the new user
-//     database: "userDB", // Database name
-//     port: "3306", // port name, "3306" by default
-//   });
-//   // execute the query
-//   pool.query(sql, (err, results) => {
-//     if (err) throw err;
-//     res.json(results); // send the transactions as a JSON response
-//   });
-// });
 
 module.exports = router;

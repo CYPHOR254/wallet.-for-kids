@@ -9,6 +9,7 @@ const Mpesa = require("mpesa-api").Mpesa;
 const axios = require("axios");
 const request = require('request');
 const moment = require("moment");
+const twilio = require("twilio");
 const { stk, stkFunct } = require("../controllers/mpesa-cont");
 
 // Initialize M-PESA API client
@@ -21,6 +22,9 @@ const mpesa = new Mpesa({
   securityCredential: "Safaricom999!*!",
 });
 
+const accountSid = "ACb7576fb31ffe1ded2d949d100331f675";
+const authToken = "5d16dd4de4d7c79abba314e9466bd48d";
+const client = twilio(accountSid, authToken);
 
 function access(req, res, next) {
   // access token
@@ -52,6 +56,7 @@ function access(req, res, next) {
     }
   );
 }
+
 // const apiUrl = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest';
 
 const pool = mysql.createPool({
@@ -127,7 +132,7 @@ router.post("/deposit", access, async function (req, res) {
           PhoneNumber: 254759432206,
           CallBackURL: "https://mydomain.com/path",
           AccountReference: "MY PIGGY BANK 2",
-          TransactionDesc: "you have successfully sent ${amount} to the phone number"
+          TransactionDesc: `you have successfully sent ${amount} to the phone number`
       },
     },
     function (error, response, body) {
@@ -208,6 +213,16 @@ router.post("/deposit", access, async function (req, res) {
     await connection.query(updateQuery, updateValues);
 
     await connection.commit();
+
+     // Send an SMS notification to the user
+     const message = `You have deposited ${amount} to your account. Your new balance is ${newBalance}.`;
+     client.messages
+       .create({
+         body: message,
+         from: "+14753488225", // Replace with your Twilio phone number
+         to: "+254759432206", // Replace with the user's phone number
+       })
+       .then((message) => console.log(message.sid));
 
     // Send response with transaction code
     res
