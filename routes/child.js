@@ -120,6 +120,8 @@ router.post("/register_child", async (req, res) => {
   }
 });
 
+
+// Define a route handler for the login endpoint
 router.post("/login_child", async (req, res) => {
   const { email, otp } = req.body;
   let user = {};
@@ -155,20 +157,21 @@ router.post("/login_child", async (req, res) => {
             email,
           ]);
         }
-
         // Check if user has trials left
         if (user.trials <= 0) {
-          return res.status(401).json({
-            error: "User has exceeded the maximum number of login attempts",
-          });
+          return res
+            .status(401)
+            .json({
+              error: "User has exceeded the maximum number of login attempts",
+            });
         }
         // Retrieve OTP for user from database
-        //const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);
+        const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);
         // const userOtp = otpResult[0].pin;
         const userOtp = user.pin;
 
         // Verify OTP password
-        //const passwordMatch = await bcrypt.compare(otp, user.pin);
+        const passwordMatch = await bcrypt.compare(otp, user.pin);
 
         if (userOtp !== otp) {
           return res.status(401).json({ error: "Invalid OTP password" });
@@ -179,10 +182,10 @@ router.post("/login_child", async (req, res) => {
         }
 
         // Reset user trials
-        //db.query('UPDATE USERSDB SET trials = 3 WHERE email = ?', [email]);
+        db.query('UPDATE USERSDB SET trials = 3 WHERE email = ?', [email]);
 
         // Respond with success message
-        // res.status(200).json({ success: 'User authenticated successfully' });
+        res.status(200).json({ success: 'User authenticated successfully' });
       }
     );
   } catch (err) {
@@ -190,5 +193,78 @@ router.post("/login_child", async (req, res) => {
     res.status(500).json({ error: "Failed to authenticate user" });
   }
 });
+
+
+
+// router.post("/login_child", async (req, res) => {
+//   const { email, otp } = req.body;
+//   let user = {};
+//   console.log(req.body);
+//   try {
+//     // Retrieve user from database
+//     const result = db.query(
+//       `SELECT * FROM USERSDB WHERE email = '${email}'`,
+//       async function (err, result, fields) {
+//         if (err) throw err;
+//         console.log(result);
+
+//         if (!Array.isArray(result) || result.length === 0) {
+//           return res.status(401).json({ error: "User not found" });
+//         }
+
+//         user = result[0];
+
+//         // Check if user is active
+//         if (user.isActive !== 1) {
+//           return res.status(401).json({ error: "User is not active" });
+//         }
+
+//         // Check if user is blocked
+//         if (user.isBlocked === 1) {
+//           return res.status(401).json({ error: "User is blocked" });
+//         }
+
+//         // Check if user's first login
+//         if (user.firstLogin === 1) {
+//           // Update user's firstLogin status
+//           db.query("UPDATE USERSDB SET firstLogin = false WHERE email = ?", [
+//             email,
+//           ]);
+//         }
+
+//         // Check if user has trials left
+//         if (user.trials <= 0) {
+//           return res.status(401).json({
+//             error: "User has exceeded the maximum number of login attempts",
+//           });
+//         }
+//         // Retrieve OTP for user from database
+//         //const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);
+//         // const userOtp = otpResult[0].pin;
+//         const userOtp = user.pin;
+
+//         // Verify OTP password
+//         //const passwordMatch = await bcrypt.compare(otp, user.pin);
+
+//         if (userOtp !== otp) {
+//           return res.status(401).json({ error: "Invalid OTP password" });
+//         } else {
+//           return res
+//             .status(200)
+//             .json({ status: 1, message: "User authenticated successfully" });
+//         }
+
+//         // Reset user trials
+//         //db.query('UPDATE USERSDB SET trials = 3 WHERE email = ?', [email]);
+
+//         // Respond with success message
+//         // res.status(200).json({ success: 'User authenticated successfully' });
+//       }
+//     );
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Failed to authenticate user" });
+//   }
+// });
 
 module.exports = router;

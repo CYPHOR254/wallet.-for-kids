@@ -6,6 +6,8 @@ const { v4: uuidv4 } = require("uuid");
 const db = require("../database.js");
 const Mpesa = require("mpesa-api").Mpesa;
 const moment = require("moment");
+const twilio = require("twilio");
+
 
 // Initialize M-PESA API client
 const mpesa = new Mpesa({
@@ -16,6 +18,11 @@ const mpesa = new Mpesa({
   initiatorName: "testapi",
   securityCredential: "Safaricom999!*!",
 });
+
+//initialize twillio client
+const accountSid = "ACb7576fb31ffe1ded2d949d100331f675";
+const authToken = "5d16dd4de4d7c79abba314e9466bd48d";
+const client = twilio(accountSid, authToken);
 
 const pool = mysql.createPool({
   connectionLimit: 100,
@@ -123,7 +130,7 @@ router.post("/buy_Goods", access, async (req, res) => {
     await connection.beginTransaction();
 
     const currency = account.currency;
-    const transactionType = "paybill";
+    const transactionType = "buy goods";
     const entryType = "debit";
     const username = "child"; // hardcoded for now
     // const category = ""
@@ -181,6 +188,16 @@ router.post("/buy_Goods", access, async (req, res) => {
 
     await connection.commit();
 
+     // Send an SMS notification to the user
+     const message = `Confirmed sent   ${amount} to  ${tillNo} to buy ${category} Your new balance is ${newBalance}.`;
+     client.messages
+       .create({
+         body: message,
+         from: "+14753488225", // Replace with your Twilio phone number
+         to: "+254759432206", // Replace with the user's phone number
+       })
+       .then((message) => console.log(message.sid));
+       
     // Send response with transaction code
     res
       .status(200)

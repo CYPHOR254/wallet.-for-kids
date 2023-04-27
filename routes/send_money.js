@@ -6,6 +6,8 @@ const { v4: uuidv4 } = require("uuid");
 const db = require("../database.js");
 const Mpesa = require("mpesa-api").Mpesa;
 const moment = require("moment");
+const twilio = require("twilio");
+
 
 // Initialize M-PESA API client
 const mpesa = new Mpesa({
@@ -26,6 +28,9 @@ const pool = mysql.createPool({
   port: "3306", // port name, "3306" by default
 });
 
+const accountSid = "ACb7576fb31ffe1ded2d949d100331f675";
+const authToken = "5d16dd4de4d7c79abba314e9466bd48d";
+const client = twilio(accountSid, authToken);
 
 function access(req, res, next) {
   // access token
@@ -61,10 +66,10 @@ function access(req, res, next) {
 
 router.post("/send_money", access, async (req, res) => {
   // Extract necessary parameters from the request body
-  const { accountNo, phoneNumber, amount } = req.body;
-  console.log(req.body);
+  const { accountNo, phoneNumber, amount,category } = req.body;
+
   // Validate input data
-  if (!accountNo || !phoneNumber || !amount) {
+  if (!accountNo ||!phoneNumber || !amount || !category) {
     return res.status(400).send("Missing required fields");
   }
 
@@ -81,173 +86,143 @@ router.post("/send_money", access, async (req, res) => {
   if (accountResult.length === 0) {
     return res.status(404).send("Account not found");
   }
-
   const account = accountResult[0];
 
-    // Check if there are sufficient funds
-    const availableBalanceQuery = "SELECT available_balance FROM accountDB WHERE accountNo = ?";
-    const availableBalanceValues = [accountNo];
-    const availableBalanceResult = await pool.query(availableBalanceQuery, availableBalanceValues);
+//initiating b2c to make payment
+    const url = "https://sandbox.safaricom.co.ke/mpesa/b2c/v1/paymentrequest"
+    let auth = "Bearer " + req.access_token;
   
-
-if (availableBalanceResult.length === 0 || availableBalanceResult[0].length === 0) {
-  return res.status(404).send("Account not found");
-}
-
-const availableBalance = availableBalanceResult[0][0].available_balance;
-
-console.log(`Available balance: ${availableBalance}`);
-
-    // if (availableBalanceResult.length === 0) {
-    //   return res.status(404).send("Account not found");
-    // }
+      // auth = "Bearer " + req.access_token;
   
-    // const availableBalance = availableBalanceResult[0].available_balance;
   
-    // console.log(`Available balance: ${availableBalance}`); // <-- Add this line to log the available balance
-
-    if (availableBalance < amount) {
-      return res.status(400).send("Insufficient funds");
-    }
-    
-
-  // Initialize the M-Pesa API request parameters
-  const mpesaEndpoint = "https://sandbox.safaricom.co.ke/mpesa/b2c/v1/paymentrequest";
-  const mpesaAuth = "Bearer " + req.access_token;
-  const mpesaTimestamp = moment().format("YYYYMMDDHHmmss");
-  const mpesaShortCode = "174379"; // TODO: Replace with your business shortcode
-  const mpesaPasskey = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"; // TODO: Replace with your Safaricom Passkey
-  const mpesaPhoneNumber = phoneNumber;
-  const mpesaAmount = amount;
-  const mpesaBillRef = "MY PIGGY BANK 2";
-  const mpesaCommandID = "CustomerPayBillOnline";
-
-  // Generate the M-Pesa API password
-  const mpesaPassword = new Buffer.from(
-    `${mpesaShortCode}${mpesaPasskey}${mpesaTimestamp}`
-  ).toString("base64");
-
-  // Send the M-Pesa API request
-  request({
-    url: mpesaEndpoint,
-    method: "POST",
-    headers: {
-      Authorization: mpesaAuth,
-    },
-    json: {
-      CommandID: mpesaCommandID,
-      Amount: mpesaAmount,
-      Msisdn: mpesaPhoneNumber,
-      BillRefNumber: mpesaBillRef,
-      ShortCode: mpesaShortCode,
-      Password: mpesaPassword,
-      Timestamp: mpesaTimestamp,
-    },
-  }),
-    async (error, response, body) => {
-      if (error) {
-        console.error(error);
-        return res
-          .status(500)
-          .send("An error occurred while processing your request");
-      } else {
-        // Check the response from the M-Pesa API
-        const resultDesc = body.ResultDesc;
-        const resultCode = body.ResultCode;
-        const conversationID = body.ConversationID;
-
-        if (resultCode === 0) {
-          // M-Pesa API request was successful
-          console.log("M-Pesa API request was successful");
-
-          // Update the transaction record in the database
-          let connection;
-          try {
-            connection = await pool.getConnection();
-            await connection.beginTransaction();
-
-             // Update the sender's account balance
-            const senderCurrency = senderAccount.currency;
-            const transactionType = "send_money";
-            const entryType = "debit";
-            const username = "parent"; // hardcoded for now
-
-            const transactionCode = `${accountNo}-${new Date().getFullYear()}-${
-              new Date().getMonth() + 1
-            }-${new Date().getDate()}-${new Date().getTime()}`;
-            const transactionQuery =
-              "INSERT INTO transactionDB (idtransactionDB, idaccountDB , transaction_date, amount, currency, transaction_type, entrytype, transaction_code, status, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
-            const transactionValues = [
-              transactionCode,
-              account.idaccountDB, // set account_Id to idaccountDB value from the account object
-              new Date(),
-              amount,
-              currency || "",
-              transactionType || "",
-              entryType,
-              transactionCode,
-              "pending",
-              new Date(),
-              username,
-            ];
-
-            const transactionResult = await connection.query(
-              transactionQuery,
-              transactionValues
-            );
-
-            // Retrieve relevant values from the relevant tables
-            const accountBalanceQuery =
-              "SELECT available_balance FROM accountDB WHERE accountNo = ?";
-            const accountBalanceValues = [accountNo];
-            const accountBalanceResult = await connection.query(
-              accountBalanceQuery,
-              accountBalanceValues
-            );
-
-            if (accountBalanceResult[0].length === 0) {
-              return res.status(404).send("Account not found");
-            }
-
-            console.log(accountBalanceResult[0][0].available_balance);
-            const accountBalance = accountBalanceResult[0][0].available_balance;
-
-            // Update the account balance
-            console.log(accountBalance);
-            // console.log(amount);
-            const newBalance = parseInt(accountBalance) - parseInt(amount);
-            console.log(newBalance);
-            const updateAccountQuery = `UPDATE accountDB SET available_balance = '${newBalance}' WHERE accountNo = '${accountNo}'`;
-            console.log(updateAccountQuery);
-            await connection.query(updateAccountQuery);
-
-            // Update the transaction record in the database
-            const updateQuery =
-              "UPDATE transactionDB SET status = ? WHERE idtransactionDB = ?";
-            const updateValues = ["completed", transactionCode];
-            await connection.query(updateQuery, updateValues);
-
-            await connection.commit();
-
-            // Send response with transaction code
-            res
-              .status(200)
-              .send(
-                `transaction successful. Transaction code: ${transactionCode}`
-              );
-          } catch (error) {
-            await connection.rollback();
-            console.error(error);
-            res.status(500).send("Server error");
-          } finally {
-            if (connection) {
-              connection.release();
-            }
-          }
+    request(
+      {
+        url: url,
+        method: "POST",
+        headers: {
+          Authorization: auth
+        },
+        json: {
+          InitiatorName: "apitest342",
+          SecurityCredential:"KsADp6BzFcGQqyCdjoVzXk/14U/sF5ZLmQh37By8YqgbXMgTMt8WJU328S4E/Sb8gLdeD0ooHo6B0VhlIXDyn71XkhhJwiotAzaxIudIVxyAwE+miqcVsMbPBuxL3/00tsGv/oUZzvz4o3+1xpEfycd/YI4p7UzkLFxSdBHiDAln6/UBLCV/SSi+pVu+lYu4mX/nNvGT2dnkXQTSbXyxMWZu7hau4VmxZf8cq5rX+Tiws5u+p2CpsuP8XMmbImYAJXKpCTNamRvs83yNin4dsm7PGWlsrT+oxxcOpj436yUXFmZWCN4yR/KLOM47JAjRXheiC21pgaFHC7h0lQhY9w==",
+          CommandID: "BusinessPayment",
+          Amount: "10",
+          PartyA: "174379",
+          PartyB: "254759432206",
+          Remarks: "please pay",
+          QueueTimeOutURL:"https://bff6-41-90-101-26.ngrok-free.app/b2c/queue",
+          ResultURL:"https://bff6-41-90-101-26.ngrok-free.app/result",
+          Occasion: `you have sent  ${amount} to this ${phoneNumber}`,
+        },
+      },
+      function (error, response, body) {
+        if (error) {
+          console.log(error);
+        } else {
+       
         }
       }
-    };
+    );
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const currency = account.currency;
+    const transactionType = "buy goods";
+    const entryType = "debit";
+    const username = "child"; // hardcoded for now
+    // const category = ""
+
+    const transactionCode = `${accountNo}-${new Date().getFullYear()}-${
+      new Date().getMonth() + 1
+    }-${new Date().getDate()}-${new Date().getTime()}`;
+    const transactionQuery =
+      "INSERT INTO transactionDB (idtransactionDB, idaccountDB , transaction_date, amount, currency, transaction_type, entrytype, transaction_code, status, created_at, created_by,category) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+    const transactionValues = [
+      transactionCode,
+      account.idaccountDB, // set account_Id to idaccountDB value from the account object
+      new Date(),
+      amount,
+      currency || "KES",
+      transactionType || "",
+      entryType,
+      transactionCode,
+      "pending",
+      new Date(),
+      username,
+      category
+    ];
+
+    const transactionResult = await connection.query(
+      transactionQuery,
+      transactionValues
+    );
+
+    // Retrieve relevant values from the relevant tables
+    const accountBalanceQuery =
+      "SELECT available_balance FROM accountDB WHERE accountNo = ?";
+    const accountBalanceValues = [accountNo];
+    const accountBalanceResult = await connection.query(
+      accountBalanceQuery,
+      accountBalanceValues
+    );
+    console.log(accountBalanceResult[0][0].available_balance);
+    const accountBalance = accountBalanceResult[0][0].available_balance;
+
+    // Update the account balance
+    console.log(accountBalance);
+    // console.log(amount);
+    const newBalance = parseInt(accountBalance) - parseInt(amount);
+    console.log(newBalance);
+    const updateAccountQuery = `UPDATE accountDB SET available_balance = '${newBalance}' WHERE accountNo = '${accountNo}'`;
+    console.log(updateAccountQuery);
+    await connection.query(updateAccountQuery);
+
+    // Update the transaction record in the database
+    const updateQuery =
+      "UPDATE transactionDB SET status = ? WHERE idtransactionDB = ?";
+    const updateValues = ["completed", transactionCode];
+    await connection.query(updateQuery, updateValues);
+
+    await connection.commit();
+
+     // Send an SMS notification to the user
+     const message = `Confirmed sent   ${amount} to  ${phoneNumber} to  ${category} Your new balance is ${newBalance}.`;
+     client.messages
+       .create({
+         body: message,
+         from: "+14753488225", // Replace with your Twilio phone number
+         to: "+254759432206", // Replace with the user's phone number
+       })
+       .then((message) => console.log(message.sid));
+       
+    // Send response with transaction code
+      res
+       .status(200)
+       .send({
+        message:"transaction successful",
+        transactionCode:transactionCode,
+
+
+       })
+    // res
+    //   .status(200)
+    //   .send(`transaction successful. Transaction code: ${transactionCode}`
+    //   `successfully sent. ${amount}" to ${phoneNumber} to pay for ${category}`
+    //   );
+  } catch (error) {
+    await connection.rollback();
+    console.error(error);
+    res.status(500).send("Server error");
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 });
+
 
 // router.post("/send_money", access, async (req, res) => {
 //   // Extract necessary parameters from the request body
@@ -271,7 +246,7 @@ console.log(`Available balance: ${availableBalance}`);
 //   if (accountResult.length === 0) {
 //     return res.status(404).send("Account not found");
 //   }
-
+// console.log("qwertyuiiuytr");
 //   const account = accountResult[0];
 
 //     // Check if there are sufficient funds
@@ -287,6 +262,7 @@ console.log(`Available balance: ${availableBalance}`);
 // const availableBalance = availableBalanceResult[0][0].available_balance;
 
 // console.log(`Available balance: ${availableBalance}`);
+// console.log("niko hapa");
 
 //     // if (availableBalanceResult.length === 0) {
 //     //   return res.status(404).send("Account not found");
@@ -398,7 +374,7 @@ console.log(`Available balance: ${availableBalance}`);
 //             if (accountBalanceResult[0].length === 0) {
 //               return res.status(404).send("Account not found");
 //             }
-
+// console.log("nimefika hapa");
 //             console.log(accountBalanceResult[0][0].available_balance);
 //             const accountBalance = accountBalanceResult[0][0].available_balance;
 
@@ -418,7 +394,17 @@ console.log(`Available balance: ${availableBalance}`);
 //             await connection.query(updateQuery, updateValues);
 
 //             await connection.commit();
-
+// console.log("easrtguhkersyfyjlkjtre");
+// // Send an SMS notification to the user
+// const message = `You have sent ${amount} to ${phoneNumber} from ${accountNo} .Your new balance is ${newBalance}.`;
+// client.messages
+//   .create({
+//     body: message,
+//     from: "+14753488225", // Replace with your Twilio phone number
+//     to: "+254759432206", // Replace with the user's phone number
+//   })
+//   .then((message) => console.log(message.sid));
+// console.log("mwishos");
 //             // Send response with transaction code
 //             res
 //               .status(200)
@@ -438,6 +424,8 @@ console.log(`Available balance: ${availableBalance}`);
 //       }
 //     };
 // });
+
+
 
 
 

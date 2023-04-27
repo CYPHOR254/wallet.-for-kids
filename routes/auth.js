@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const mysql = require("mysql2/promise");
 const { register } = require("../controllers/auth-cont.js");
 
+
 // Define a route handler for the registration endpoint
 router.post("/register", async (req, res) => {
   const { username, email, phoneNo, Idnumber, DOB } = req.body;
@@ -26,6 +27,8 @@ router.post("/register", async (req, res) => {
   const uuid = uuidv4();
 
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  console.log("fywecdfsvcsjg");
+  console.log(otp);
   const user_name = username;
 
   // Hash the OTP password and create pin
@@ -84,6 +87,8 @@ router.post("/register", async (req, res) => {
   }
 });
 
+
+// Define a route handler for the login endpoint
 router.post("/login", async (req, res) => {
   const { email, otp } = req.body;
   let user = {};
@@ -119,7 +124,6 @@ router.post("/login", async (req, res) => {
             email,
           ]);
         }
-
         // Check if user has trials left
         if (user.trials <= 0) {
           return res
@@ -129,12 +133,12 @@ router.post("/login", async (req, res) => {
             });
         }
         // Retrieve OTP for user from database
-        //const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);
+        const otpResult =  db.query(`SELECT otp FROM USERSDB WHERE email = '${email}'`);
         // const userOtp = otpResult[0].pin;
         const userOtp = user.pin;
 
         // Verify OTP password
-        //const passwordMatch = await bcrypt.compare(otp, user.pin);
+        const passwordMatch = await bcrypt.compare(otp, user.pin);
 
         if (userOtp !== otp) {
           return res.status(401).json({ error: "Invalid OTP password" });
@@ -145,10 +149,10 @@ router.post("/login", async (req, res) => {
         }
 
         // Reset user trials
-        //db.query('UPDATE USERSDB SET trials = 3 WHERE email = ?', [email]);
+        db.query('UPDATE USERSDB SET trials = 3 WHERE email = ?', [email]);
 
         // Respond with success message
-        // res.status(200).json({ success: 'User authenticated successfully' });
+        res.status(200).json({ success: 'User authenticated successfully' });
       }
     );
   } catch (err) {
@@ -156,6 +160,7 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: "Failed to authenticate user" });
   }
 });
+
 
 router.put("/change-password", async (req, res) => {
   const { email, currentPassword, newPassword, newEmail } = req.body;
@@ -230,3 +235,75 @@ router.put("/change-password", async (req, res) => {
 });
 
 module.exports = router;
+
+
+// router.post("/login", async (req, res) => {
+//   const { email, otp } = req.body;
+
+//   try {
+//     // Retrieve user from database
+//     const result = db.query(
+//       "SELECT * FROM USERSDB WHERE email = ?",
+//       [email]
+//     );
+    
+
+//     if (!Array.isArray(result) || result.length === 0) {
+//       return res.status(401).json({ error: "User not found" });
+//     }
+
+//     const user = result[0];
+
+//     user = result[0];
+
+//     // Check if user is active
+//     if (user.isActive !== 1) {
+//       return res.status(401).json({ error: "User is not active" });
+//     }
+
+//     // Check if user is blocked
+//     if (user.isBlocked === 1) {
+//       return res.status(401).json({ error: "User is blocked" });
+//     }
+
+//     // Check if user's first login
+//     if (user.firstLogin === 1) {
+//       // Update user's firstLogin status
+//       db.query(
+//         "UPDATE USERSDB SET firstLogin = false WHERE email = ?",
+//         [email]
+//       );
+//     }
+
+//     // Check if user has trials left
+//     if (user.trials <= 0) {
+//       return res.status(401).json({
+//         error: "User has exceeded the maximum number of login attempts",
+//       });
+//     }
+
+//     // Retrieve OTP for user from database
+//     const [otpRows] = db.query(
+//       "SELECT otp FROM USERSDB WHERE email = ?",
+//       [email]
+//     );
+//     const userOtp = otpRows[0].otp;
+
+//     // Verify OTP password
+//     const passwordMatch = await bcrypt.compare(otp, userOtp);
+
+//     if (!passwordMatch) {
+//       return res.status(401).json({ error: "Invalid OTP password" });
+//     }
+
+//     // Reset user trials
+//     db.query("UPDATE USERSDB SET trials = 3 WHERE email = ?", [email]);
+
+//     // Respond with success message
+//     res.status(200).json({ status: 1, message: "User authenticated successfully" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Failed to authenticate user" });
+//   }
+// });
+
